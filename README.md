@@ -44,8 +44,8 @@ Create the target directory inside KeyHelp and download the files via wget (repl
 mkdir -p /home/keyhelp/www/keyhelp/dashboard-layout
 cd /home/keyhelp/www/keyhelp/dashboard-layout
 
-wget -O dashboard_layout.php https://raw.githubusercontent.com/mulano1977/keyhelp-dashboard-layout-customizer/releases/download/1.0.0/dashboard_layout.php
-wget -O dashboard_layout.js https://raw.githubusercontent.com/mulano1977/keyhelp-dashboard-layout-customizer/releases/download/1.0.0/dashboard_layout.js
+wget -O dashboard_layout.php https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.0/dashboard_layout.php
+wget -O dashboard_layout.js https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.0/dashboard_layout.js
 ```
 
 ### Step 2: Set Ownership and Permissions
