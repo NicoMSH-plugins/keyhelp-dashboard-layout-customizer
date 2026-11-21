@@ -18,7 +18,7 @@ A lightweight drag-and-drop layout and visibility manager for the KeyHelp admin 
 
 - Drag and drop dashboard boxes up/down or between columns inside a compact preview modal.
 - Hide or show individual dashboard boxes directly inside the preview modal.
-- Persist column order and hidden box IDs server-side in dashboard_layout.json.
+- Persist column order and hidden box IDs server-side in `dashboard_layout.json`.
 - Reset the saved layout with one click to restore the default KeyHelp dashboard.
 - Automatic German / English UI labels based on the html lang attribute.
 
@@ -62,7 +62,7 @@ chmod 644 /home/keyhelp/www/keyhelp/dashboard-layout/dashboard_layout.php /home/
 
 Open your KeyHelp admin panel, go to White-Label -> JavaScript, and add the following snippet:
 
-```
+```javascript
 if ('admin_dashboard' === getUrlQueryParameterValue('page')) {
     $(function() {
         $.getScript('dashboard-layout/dashboard_layout.js?_=' + Date.now());
