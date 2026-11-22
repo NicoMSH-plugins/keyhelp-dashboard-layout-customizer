@@ -92,4 +92,8 @@ Save the White-Label settings.
 - **Per-Language Layout Storage**: Stored column order and hidden widget states separately per language (`locales.<lang>`) within a single `dashboard_layout.json` file via `dashboard_layout.php` and `dashboard_layout.js`.
 - **Cross-Language Layout Stability**: Prevented dashboard widgets from shifting or overflowing across columns when switching the interface language.
 - **Reliable Edit Button Placement**: Ensured the layout editor trigger button renders consistently in the dashboard footer across languages.
+#### v1.0.2 (2026-11-22)
+- **Fixed Widget ID Preservation**: Preserved fixed custom widget IDs in `dashboard_layout.js` instead of overwriting them with localized title slugs.
+- **Locale Layout Fallback**: Added fallback layout selection in `dashboard_layout.js` when no layout entry exists yet for the active interface language, preventing unexpected shifts during language switches.
+- **Event-Driven Layout Re-Application**: Re-applied saved layouts when asynchronous dashboard widgets finish rendering so column placement and visibility stay consistent.
 </details>
