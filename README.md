@@ -65,7 +65,8 @@ Open your KeyHelp admin panel, go to White-Label -> JavaScript, and add the foll
 ```javascript
 if ('admin_dashboard' === getUrlQueryParameterValue('page')) {
     $(function() {
-        $.getScript('dashboard-layout/dashboard_layout.js?_=' + Date.now());
+        const ts = '?_=' + Date.now();
+        $.getScript('dashboard-layout/dashboard_layout.js' + ts); //muss immer als erstes geladen werden
     });
 }
 ```
