@@ -83,3 +83,13 @@ Save the White-Label settings.
 
 > [!NOTE]
 > Some dashboard widgets load or adjust asynchronously; therefore the script reapplies the saved layout on initial load and once shortly after.
+
+## Changelog
+<details>
+<summary><b>Show / Expand Changelog History</b></summary>
+
+#### v1.0.1 (2026-11-22)
+- **Per-Language Layout Storage**: Stored column order and hidden widget states separately per language (`locales.<lang>`) within a single `dashboard_layout.json` file via `dashboard_layout.php` and `dashboard_layout.js`.
+- **Cross-Language Layout Stability**: Prevented dashboard widgets from shifting or overflowing across columns when switching the interface language.
+- **Reliable Edit Button Placement**: Ensured the layout editor trigger button renders consistently in the dashboard footer across languages.
+</details>
