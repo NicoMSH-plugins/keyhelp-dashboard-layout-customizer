@@ -14,6 +14,14 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
             const isGerman = htmlLang.toLowerCase().startsWith('de');
             const langCode = (htmlLang.toLowerCase().replace(/[^a-z-]/g, '').split('-')[0] || 'de').slice(0, 5);
 
+            const FIXED_CARD_SELECTORS = [
+                '#ramdisk-status-card',
+                '#real-cpu-status-card',
+                '#abuseipdb-status-card',
+                '#plugin-stats-card',
+                '#custom-service-box-0-card'
+            ];
+
             let savedHiddenSet = new Set();
             let cachedLayoutData = null;
 
@@ -52,6 +60,9 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
 
                 $columns.find('> .card, > .box').each(function(idx) {
                     const $el = $(this);
+                    if ($el.is(FIXED_CARD_SELECTORS.join(',')) && $el.attr('id')) {
+                        return;
+                    }
                     if (!$el.attr('id')) {
                         const title = $el.find('.card-header-title, h1, h2, h3, h4').first().text().trim();
                         const baseSlug = slugifyTitle(title) || ('box-' + idx);
@@ -496,7 +507,7 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                 }
             }, 300);
 
-            $(document).on('pluginStatsBoxReady', function() {
+            $(document).on('pluginStatsBoxReady ramdiskBoxReady', function() {
                 ensureFooterButton();
                 if (cachedLayoutData) {
                     applySavedLayout(cachedLayoutData);
@@ -510,16 +521,33 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                 }
             });
 
+            function pickLayoutForLang(rawRes, currentLang) {
+                if (!rawRes) return null;
+                if (rawRes.locales && typeof rawRes.locales === 'object') {
+                    if (rawRes.locales[currentLang]) return rawRes.locales[currentLang];
+                    if (rawRes.locales.de) return rawRes.locales.de;
+                    const firstKey = Object.keys(rawRes.locales)[0];
+                    if (firstKey) return rawRes.locales[firstKey];
+                }
+                if (Array.isArray(rawRes.columns) || Array.isArray(rawRes.hidden)) {
+                    const hasData = (Array.isArray(rawRes.columns) && rawRes.columns.some(c => Array.isArray(c) && c.length > 0))
+                        || (Array.isArray(rawRes.hidden) && rawRes.hidden.length > 0);
+                    if (hasData) return rawRes;
+                }
+                return null;
+            }
+
             $.getJSON(LAYOUT_ENDPOINT + '?lang=' + encodeURIComponent(langCode) + '&_=' + Date.now())
                 .done(function(res) {
-                    if (res && (Array.isArray(res.columns) || Array.isArray(res.hidden))) {
-                        cachedLayoutData = res;
-                        applySavedLayout(res);
+                    const chosen = pickLayoutForLang(res, langCode);
+                    if (chosen) {
+                        cachedLayoutData = chosen;
+                        applySavedLayout(chosen);
                         setTimeout(function() {
-                            applySavedLayout(res);
+                            applySavedLayout(chosen);
                         }, 500);
                         setTimeout(function() {
-                            applySavedLayout(res);
+                            applySavedLayout(chosen);
                         }, 1500);
                     }
                 })
