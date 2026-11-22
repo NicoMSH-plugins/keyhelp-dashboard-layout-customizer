@@ -38,7 +38,7 @@ dashboard-layout/
 
 ### Step 1: Create Directory & Download Files
 
-Create the target directory inside KeyHelp and download the files via wget (replace YOUR_REPO_URL with your raw GitHub base URL if needed):
+Create the target directory inside KeyHelp and download the files via wget:
 
 ```bash
 mkdir -p /home/keyhelp/www/keyhelp/dashboard-layout
