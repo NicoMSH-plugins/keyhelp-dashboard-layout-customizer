@@ -2,7 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
-const LAYOUT_PLUGIN_VERSION = '1.0.3';
+const LAYOUT_PLUGIN_VERSION = '1.0.4';
 const LAYOUT_GITHUB_REPO    = 'NicoMSH-plugins/keyhelp-dashboard-layout-customizer';
 
 $storageFile = __DIR__ . '/dashboard_layout.json';
@@ -315,11 +315,33 @@ function sanitizeColumns($rawColumns): array {
 
 function normalizeLayoutEntry($entry): array {
     if (!is_array($entry)) {
-        return ['columns' => [], 'hidden' => []];
+        return ['columns' => [], 'hidden' => [], 'full_width_top' => [], 'full_width_bottom' => []];
     }
+    $legacyFull = sanitizeIdList($entry['full_width'] ?? []);
+    $topList    = sanitizeIdList($entry['full_width_top'] ?? $legacyFull);
+    $bottomList = sanitizeIdList($entry['full_width_bottom'] ?? []);
+
+    $seen = [];
+    $cleanTop = [];
+    foreach ($topList as $id) {
+        if (!isset($seen[$id])) {
+            $seen[$id] = true;
+            $cleanTop[] = $id;
+        }
+    }
+    $cleanBottom = [];
+    foreach ($bottomList as $id) {
+        if (!isset($seen[$id])) {
+            $seen[$id] = true;
+            $cleanBottom[] = $id;
+        }
+    }
+
     return [
-        'columns' => sanitizeColumns($entry['columns'] ?? []),
-        'hidden'  => sanitizeIdList($entry['hidden'] ?? []),
+        'columns'           => sanitizeColumns($entry['columns'] ?? []),
+        'hidden'            => sanitizeIdList($entry['hidden'] ?? []),
+        'full_width_top'    => $cleanTop,
+        'full_width_bottom' => $cleanBottom,
     ];
 }
 
@@ -345,8 +367,13 @@ function loadStore(string $storageFile): array {
         return ['locales' => $cleanLocales];
     }
 
-    // Abwärtskompatibilität für altes Format ohne "locales"
-    if (isset($decoded['columns']) || isset($decoded['hidden'])) {
+    if (
+        isset($decoded['columns'])
+        || isset($decoded['hidden'])
+        || isset($decoded['full_width_top'])
+        || isset($decoded['full_width_bottom'])
+        || isset($decoded['full_width'])
+    ) {
         return [
             'locales' => [
                 'de' => normalizeLayoutEntry($decoded),
@@ -367,7 +394,6 @@ function saveStore(string $storageFile, array $store): bool {
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-// POST ?action=update -> geschützt durch bestehende Session, CSRF & Same-Origin-Check + Cooldown
 if ($method === 'POST' && ($_GET['action'] ?? '') === 'update') {
     if (!requireValidCsrfAndOrigin($hasSessionCookie, $sessionHasCsrf)) {
         http_response_code(403);
@@ -417,14 +443,16 @@ if ($method === 'GET') {
     $forceRefresh = (($_GET['refresh'] ?? '') === '1');
     $lang = sanitizeLang($_GET['lang'] ?? 'de');
     $store = loadStore($storageFile);
-    $entry = $store['locales'][$lang] ?? ['columns' => [], 'hidden' => []];
+    $entry = $store['locales'][$lang] ?? ['columns' => [], 'hidden' => [], 'full_width_top' => [], 'full_width_bottom' => []];
 
     echo json_encode([
-        'lang'       => $lang,
-        'columns'    => $entry['columns'],
-        'hidden'     => $entry['hidden'],
-        'git'        => getGitStatusInfo($repoDir, $forceRefresh),
-        'csrf_token' => $csrfToken,
+        'lang'              => $lang,
+        'columns'           => $entry['columns'],
+        'hidden'            => $entry['hidden'],
+        'full_width_top'    => $entry['full_width_top'],
+        'full_width_bottom' => $entry['full_width_bottom'],
+        'git'               => getGitStatusInfo($repoDir, $forceRefresh),
+        'csrf_token'        => $csrfToken,
     ]);
     exit;
 }
@@ -471,11 +499,13 @@ if ($method === 'POST') {
         }
 
         echo json_encode([
-            'ok'         => true,
-            'lang'       => $lang,
-            'columns'    => [],
-            'hidden'     => [],
-            'csrf_token' => $csrfToken,
+            'ok'                => true,
+            'lang'              => $lang,
+            'columns'           => [],
+            'hidden'            => [],
+            'full_width_top'    => [],
+            'full_width_bottom' => [],
+            'csrf_token'        => $csrfToken,
         ]);
         exit;
     }
@@ -486,10 +516,12 @@ if ($method === 'POST') {
         exit;
     }
 
-    $entry = [
-        'columns' => sanitizeColumns($input['columns']),
-        'hidden'  => sanitizeIdList($input['hidden'] ?? []),
-    ];
+    $entry = normalizeLayoutEntry([
+        'columns'           => $input['columns'],
+        'hidden'            => $input['hidden'] ?? [],
+        'full_width_top'    => $input['full_width_top'] ?? ($input['full_width'] ?? []),
+        'full_width_bottom' => $input['full_width_bottom'] ?? [],
+    ]);
     $store['locales'][$lang] = $entry;
 
     if (!saveStore($storageFile, $store)) {
@@ -499,11 +531,13 @@ if ($method === 'POST') {
     }
 
     echo json_encode([
-        'ok'         => true,
-        'lang'       => $lang,
-        'columns'    => $entry['columns'],
-        'hidden'     => $entry['hidden'],
-        'csrf_token' => $csrfToken,
+        'ok'                => true,
+        'lang'              => $lang,
+        'columns'           => $entry['columns'],
+        'hidden'            => $entry['hidden'],
+        'full_width_top'    => $entry['full_width_top'],
+        'full_width_bottom' => $entry['full_width_bottom'],
+        'csrf_token'        => $csrfToken,
     ]);
     exit;
 }

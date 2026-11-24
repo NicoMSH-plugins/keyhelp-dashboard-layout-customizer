@@ -45,8 +45,8 @@ Create the target directory inside KeyHelp and download the files via `wget`:
 mkdir -p /home/keyhelp/www/keyhelp/dashboard-layout
 cd /home/keyhelp/www/keyhelp/dashboard-layout
 
-wget -O dashboard_layout.php [https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.3/dashboard_layout.php](https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.3/dashboard_layout.php)
-wget -O dashboard_layout.js [https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.3/dashboard_layout.js](https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.3/dashboard_layout.js)
+wget -O dashboard_layout.php https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.4/dashboard_layout.php)
+wget -O dashboard_layout.js https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.4/dashboard_layout.js)
 ```
 
 ### Step 2: Set Ownership and Permissions
@@ -102,5 +102,8 @@ Save the White-Label settings.
 
 #### v1.0.3 (2026-11-24)
 - **Security**: Added KeyHelp session cookie recognition (`KEYHELP_SESSION_ID`), CSRF token validation, same-origin checks, and a write rate-limit cooldown on `POST` requests in `dashboard_layout.php`.
-- **Added**: Update check against `origin/main` (and GitHub releases fallback) with a changelog preview tooltip (`git log --oneline HEAD..origin/main`) and a one-click **Update** button (`POST ?action=update` via `git pull --ff-only origin main`) in the preview overlay.
+
+#### v1.0.4 (2026-11-24)
+- **Added**: Full-width **Top** (`full_width_top`) and **Bottom** (`full_width_bottom`) drop zones in the preview modal and layout persistence so widgets can span across columns above or below the main grid.
+- **Fixed**: Preserved visibility of widgets moved into full-width top/bottom zones inside the preview overlay so they remain accessible when dragging back to columns or bottom/top zones.
 </details>

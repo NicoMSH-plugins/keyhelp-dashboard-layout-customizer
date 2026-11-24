@@ -1,5 +1,5 @@
 // ====================================================
-// DASHBOARD LAYOUT - 2-SPALTEN VORSCHAU + DND + HIDE + RESET + UPDATE
+// DASHBOARD LAYOUT - TOP/COLS/BOTTOM ZONES + DND + HIDE + RESET + UPDATE
 // ====================================================
 if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? getUrlQueryParameterValue('page') : new URLSearchParams(window.location.search).get('page'))) {
     (function startLayoutPlugin() {
@@ -23,6 +23,8 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
             ];
 
             let savedHiddenSet = new Set();
+            let savedFullTopSet = new Set();
+            let savedFullBottomSet = new Set();
             let cachedLayoutData = null;
             let cachedGitInfo = null;
             let currentCsrfToken = '';
@@ -163,6 +165,10 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                     const existingId = $(this).attr('id');
                     if (existingId) usedIds.add(existingId);
                 });
+                $('#kh-fullwidth-top-zone, #kh-fullwidth-bottom-zone').find('> .card, > .box').each(function() {
+                    const existingId = $(this).attr('id');
+                    if (existingId) usedIds.add(existingId);
+                });
 
                 $columns.find('> .card, > .box').each(function(idx) {
                     const $el = $(this);
@@ -206,8 +212,114 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                 return cleaned.length > 85 ? cleaned.slice(0, 85).trim() + '…' : cleaned;
             }
 
+            function applyFullWidthPlacement($columns, topIds, bottomIds) {
+                const topList = Array.isArray(topIds) ? topIds : [];
+                const bottomList = Array.isArray(bottomIds) ? bottomIds : [];
+                const topSet = new Set(topList);
+                const bottomSet = new Set(bottomList);
+
+                const $colsWrapper = $columns.first().parent();
+                if (!$colsWrapper.length) return;
+
+                const $boardParent = $colsWrapper.parent();
+                let $topZone = $boardParent.children('#kh-fullwidth-top-zone');
+                let $bottomZone = $boardParent.children('#kh-fullwidth-bottom-zone');
+
+                if (topList.length > 0 && !$topZone.length) {
+                    $topZone = $('<div id="kh-fullwidth-top-zone" style="width: 100%; clear: both;"></div>');
+                    $colsWrapper.before($topZone);
+                }
+                if (bottomList.length > 0 && !$bottomZone.length) {
+                    $bottomZone = $('<div id="kh-fullwidth-bottom-zone" style="width: 100%; clear: both;"></div>');
+                    $colsWrapper.after($bottomZone);
+                }
+
+                const cardMap = new Map();
+                $boardParent.find('.card, .box').each(function() {
+                    const $el = $(this);
+                    if ($el.closest('#dash-layout-overlay').length) return;
+                    const id = $el.attr('id');
+                    if (id) cardMap.set(id, $el);
+                });
+
+                [...savedFullTopSet, ...savedFullBottomSet].forEach(function(prevId) {
+                    if (!topSet.has(prevId) && !bottomSet.has(prevId)) {
+                        const $card = cardMap.get(prevId);
+                        if ($card && $card.length) {
+                            $card.removeAttr('data-kh-fw-mode').css({
+                                width: '',
+                                maxWidth: '',
+                                marginTop: '',
+                                marginBottom: '24px'
+                            });
+                            const origCol = parseInt($card.attr('data-kh-orig-col') || '0', 10);
+                            const $targetCol = $columns.eq(origCol).length ? $columns.eq(origCol) : $columns.first();
+                            $targetCol.append($card);
+                        }
+                    }
+                });
+
+                if ($topZone.length) {
+                    topList.forEach(function(id) {
+                        const $card = cardMap.get(id);
+                        if ($card && $card.length) {
+                            if (!$card.attr('data-kh-orig-col')) {
+                                const colIdx = $columns.index($card.closest('.column'));
+                                $card.attr('data-kh-orig-col', String(colIdx >= 0 ? colIdx : 0));
+                            }
+                            $card.attr('data-kh-fw-mode', 'top').css({
+                                width: '100%',
+                                maxWidth: '100%',
+                                marginTop: '0px',
+                                marginBottom: '24px'
+                            });
+                            $topZone.append($card);
+                        }
+                    });
+                }
+
+                if ($bottomZone.length) {
+                    bottomList.forEach(function(id) {
+                        const $card = cardMap.get(id);
+                        if ($card && $card.length) {
+                            if (!$card.attr('data-kh-orig-col')) {
+                                const colIdx = $columns.index($card.closest('.column'));
+                                $card.attr('data-kh-orig-col', String(colIdx >= 0 ? colIdx : 0));
+                            }
+                            $card.attr('data-kh-fw-mode', 'bottom').css({
+                                width: '100%',
+                                maxWidth: '100%',
+                                marginTop: '0px',
+                                marginBottom: '24px'
+                            });
+                            $bottomZone.append($card);
+                        }
+                    });
+                }
+
+                if ($topZone.length && !$topZone.children('.card, .box').length) {
+                    $topZone.remove();
+                }
+                if ($bottomZone.length && !$bottomZone.children('.card, .box').length) {
+                    $bottomZone.remove();
+                }
+
+                savedFullTopSet = topSet;
+                savedFullBottomSet = bottomSet;
+            }
+
             function applyHiddenState($columns, hiddenIds) {
                 const hiddenSet = new Set(Array.isArray(hiddenIds) ? hiddenIds : []);
+                $('#kh-fullwidth-top-zone, #kh-fullwidth-bottom-zone').find('> .card, > .box').each(function() {
+                    const $card = $(this);
+                    const id = $card.attr('id');
+                    if (!id) return;
+                    if (hiddenSet.has(id)) {
+                        $card.hide();
+                    } else if (savedHiddenSet.has(id)) {
+                        $card.show();
+                    }
+                });
                 $columns.find('> .card, > .box').each(function() {
                     const $card = $(this);
                     const id = $card.attr('id');
@@ -225,6 +337,8 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                 if (!layoutData) return;
                 const columnsOrder = Array.isArray(layoutData) ? layoutData : (layoutData && layoutData.columns);
                 const hiddenIds = Array.isArray(layoutData) ? [] : (layoutData && layoutData.hidden);
+                const topIds = Array.isArray(layoutData) ? [] : (layoutData && (layoutData.full_width_top || layoutData.full_width));
+                const bottomIds = Array.isArray(layoutData) ? [] : (layoutData && layoutData.full_width_bottom);
 
                 const $columns = getDashboardColumns();
                 if (!$columns.length) return;
@@ -241,10 +355,15 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                         colIds.forEach(function(id) {
                             const $card = cardMap.get(id);
                             if ($card && $card.length) {
+                                $card.attr('data-kh-orig-col', String(colIndex));
                                 $targetCol.append($card);
                             }
                         });
                     });
+                }
+
+                if (Array.isArray(topIds) || Array.isArray(bottomIds)) {
+                    applyFullWidthPlacement($columns, topIds || [], bottomIds || []);
                 }
 
                 if (Array.isArray(hiddenIds)) {
@@ -362,6 +481,20 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                 `;
             }
 
+            function renderZoneBlockHtml(label, zoneAttr, zoneValue, tilesHtml, minHeightPx) {
+                return `
+                    <div style="display: flex; flex-direction: column; min-width: 0;">
+                        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; margin-bottom: 8px; padding-left: 4px;">
+                            ${label}
+                        </div>
+                        <div class="dash-preview-col" ${zoneAttr}="${zoneValue}"
+                            style="display: flex; flex-direction: column; gap: 9px; min-height: ${minHeightPx}px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.025); border: 1px dashed rgba(156,163,175,0.22);">
+                            ${tilesHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
             function openPreviewOverlay() {
                 if ($('#dash-layout-overlay').length) return;
 
@@ -369,32 +502,57 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                 const colCount = $columns.length;
                 const isNarrow = window.innerWidth < 820;
 
+                const cardById = new Map();
+                $columns.find('> .card, > .box').each(function() {
+                    const id = $(this).attr('id');
+                    if (id) cardById.set(id, $(this));
+                });
+                $('#kh-fullwidth-top-zone, #kh-fullwidth-bottom-zone').find('> .card, > .box').each(function() {
+                    const id = $(this).attr('id');
+                    if (id && !cardById.has(id)) cardById.set(id, $(this));
+                });
+
+                const topIds = Array.from(savedFullTopSet);
+                const bottomIds = Array.from(savedFullBottomSet);
+                const placedInTopOrBottom = new Set([...topIds, ...bottomIds]);
+
+                const topTilesHtml = topIds
+                    .map(id => cardById.get(id))
+                    .filter($c => $c && $c.length)
+                    .map($c => buildTileHtml($c))
+                    .join('');
+
+                const bottomTilesHtml = bottomIds
+                    .map(id => cardById.get(id))
+                    .filter($c => $c && $c.length)
+                    .map($c => buildTileHtml($c))
+                    .join('');
+
                 const columnsHtml = $columns.map(function(colIdx) {
                     const $col = $(this);
-                    const $allCards = $col.children('.card, .box');
+                    const $colCards = $col.children('.card, .box').filter(function() {
+                        const id = $(this).attr('id');
+                        return !id || !placedInTopOrBottom.has(id);
+                    });
 
+                    // Falls eine Box aktuell in Top/Bottom liegt, aber ursprünglich in dieser Spalte war und nicht mehr dort ist:
                     const colLabel = colCount === 2
                         ? (colIdx === 0
                             ? (isGerman ? 'Linke Spalte' : 'Left Column')
                             : (isGerman ? 'Rechte Spalte' : 'Right Column'))
                         : ((isGerman ? 'Spalte ' : 'Column ') + (colIdx + 1));
 
-                    const tilesHtml = $allCards.map(function() {
+                    const tilesHtml = $colCards.map(function() {
                         return buildTileHtml($(this));
                     }).get().join('');
 
-                    return `
-                        <div style="display: flex; flex-direction: column; min-width: 0;">
-                            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; margin-bottom: 8px; padding-left: 4px;">
-                                ${colLabel}
-                            </div>
-                            <div class="dash-preview-col" data-col-index="${colIdx}"
-                                style="display: flex; flex-direction: column; gap: 9px; min-height: 180px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.025); border: 1px dashed rgba(156,163,175,0.22);">
-                                ${tilesHtml}
-                            </div>
-                        </div>
-                    `;
+                    return renderZoneBlockHtml(colLabel, 'data-col-index', String(colIdx), tilesHtml, 160);
                 }).get().join('');
+
+                const topLabel = isGerman ? 'Oben (Vollbreite)' : 'Top (Full Width)';
+                const bottomLabel = isGerman ? 'Unten (Vollbreite)' : 'Bottom (Full Width)';
+                const topZoneHtml = renderZoneBlockHtml(topLabel, 'data-zone', 'top', topTilesHtml, 72);
+                const bottomZoneHtml = renderZoneBlockHtml(bottomLabel, 'data-zone', 'bottom', bottomTilesHtml, 72);
 
                 const gridCols = (colCount >= 2 && !isNarrow) ? `repeat(${colCount}, minmax(0, 1fr))` : '1fr';
                 const versionFooterHtml = renderOverlayFooterHtml(cachedGitInfo);
@@ -409,8 +567,8 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                                 </div>
                                 <div style="font-size: 12px; color: #9ca3af; margin-top: 2px;">
                                     ${isGerman
-                                        ? 'Boxen per Drag & Drop verschieben oder über Ausblenden/Einblenden umschalten.'
-                                        : 'Drag & drop boxes or toggle visibility with Hide/Show.'}
+                                        ? 'Boxen per Drag & Drop zwischen Oben, Spalten und Unten verschieben oder Ausblenden/Einblenden umschalten.'
+                                        : 'Drag & drop boxes across Top, Columns, and Bottom or toggle visibility with Hide/Show.'}
                                 </div>
                             </div>
                             <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
@@ -430,10 +588,12 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                             </div>
                         </div>
 
-                        <div id="dash-preview-board" style="margin-top: 14px; overflow-y: auto; flex: 1; padding-right: 4px;">
+                        <div id="dash-preview-board" style="margin-top: 14px; overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 14px;">
+                            ${topZoneHtml}
                             <div style="display: grid; grid-template-columns: ${gridCols}; gap: 16px; align-items: start;">
                                 ${columnsHtml}
                             </div>
+                            ${bottomZoneHtml}
                         </div>
 
                         ${versionFooterHtml}
@@ -594,8 +754,21 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                     const $saveBtn = $(this);
                     const newColumns = [];
                     const hiddenIds = [];
+                    const fullTopIds = [];
+                    const fullBottomIds = [];
 
-                    $overlay.find('.dash-preview-col').each(function() {
+                    $overlay.find('.dash-preview-col[data-zone="top"] .dash-preview-tile').each(function() {
+                        const $tile = $(this);
+                        const id = $tile.attr('data-card-id');
+                        if (id) {
+                            fullTopIds.push(id);
+                            if ($tile.attr('data-hidden') === '1') {
+                                hiddenIds.push(id);
+                            }
+                        }
+                    });
+
+                    $overlay.find('.dash-preview-col[data-col-index]').each(function() {
                         const colIds = [];
                         $(this).find('.dash-preview-tile').each(function() {
                             const $tile = $(this);
@@ -610,11 +783,27 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                         newColumns.push(colIds);
                     });
 
+                    $overlay.find('.dash-preview-col[data-zone="bottom"] .dash-preview-tile').each(function() {
+                        const $tile = $(this);
+                        const id = $tile.attr('data-card-id');
+                        if (id) {
+                            fullBottomIds.push(id);
+                            if ($tile.attr('data-hidden') === '1') {
+                                hiddenIds.push(id);
+                            }
+                        }
+                    });
+
                     $saveBtn.prop('disabled', true).text(isGerman ? 'Speichere...' : 'Saving...');
                     $('#dash-layout-status').text('');
 
                     sendLayoutRequest(
-                        { columns: newColumns, hidden: hiddenIds },
+                        {
+                            columns: newColumns,
+                            hidden: hiddenIds,
+                            full_width_top: fullTopIds,
+                            full_width_bottom: fullBottomIds
+                        },
                         function() {
                             window.location.reload();
                         },
@@ -700,9 +889,18 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                     const firstKey = Object.keys(rawRes.locales)[0];
                     if (firstKey) return rawRes.locales[firstKey];
                 }
-                if (Array.isArray(rawRes.columns) || Array.isArray(rawRes.hidden)) {
+                if (
+                    Array.isArray(rawRes.columns)
+                    || Array.isArray(rawRes.hidden)
+                    || Array.isArray(rawRes.full_width_top)
+                    || Array.isArray(rawRes.full_width_bottom)
+                    || Array.isArray(rawRes.full_width)
+                ) {
                     const hasData = (Array.isArray(rawRes.columns) && rawRes.columns.some(c => Array.isArray(c) && c.length > 0))
-                        || (Array.isArray(rawRes.hidden) && rawRes.hidden.length > 0);
+                        || (Array.isArray(rawRes.hidden) && rawRes.hidden.length > 0)
+                        || (Array.isArray(rawRes.full_width_top) && rawRes.full_width_top.length > 0)
+                        || (Array.isArray(rawRes.full_width_bottom) && rawRes.full_width_bottom.length > 0)
+                        || (Array.isArray(rawRes.full_width) && rawRes.full_width.length > 0);
                     if (hasData) return rawRes;
                 }
                 return null;
