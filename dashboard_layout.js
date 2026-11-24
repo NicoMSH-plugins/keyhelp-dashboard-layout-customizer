@@ -1,5 +1,5 @@
 // ====================================================
-// DASHBOARD LAYOUT - 2-SPALTEN VORSCHAU + DND + HIDE + RESET
+// DASHBOARD LAYOUT - 2-SPALTEN VORSCHAU + DND + HIDE + RESET + UPDATE
 // ====================================================
 if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? getUrlQueryParameterValue('page') : new URLSearchParams(window.location.search).get('page'))) {
     (function startLayoutPlugin() {
@@ -24,6 +24,112 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
 
             let savedHiddenSet = new Set();
             let cachedLayoutData = null;
+            let cachedGitInfo = null;
+            let currentCsrfToken = '';
+
+            function escapeHtml(val) {
+                return $('<div>').text(String(val ?? '')).html();
+            }
+
+            function buildUpdateTooltip(gitInfo, latestVer) {
+                const commits = Array.isArray(gitInfo && gitInfo.commits) ? gitInfo.commits : [];
+                const header = isGerman
+                    ? `Update auf ${latestVer} per git pull`
+                    : `Update to ${latestVer} via git pull`;
+
+                if (!commits.length) {
+                    return header;
+                }
+
+                const listTitle = isGerman ? 'Änderungen:' : 'Changes:';
+                const lines = commits.map(function(c) {
+                    return '• ' + String(c || '').trim();
+                }).filter(Boolean);
+
+                return [header, '', listTitle, ...lines].join('\n');
+            }
+
+            function renderOverlayFooterHtml(gitInfo) {
+                if (!gitInfo || typeof gitInfo !== 'object') {
+                    return '';
+                }
+
+                const mode = gitInfo.mode || 'git';
+                const currentVer = escapeHtml(gitInfo.current_version || '-');
+                const latestVer = escapeHtml(gitInfo.latest_version || currentVer);
+                const hasUpdate = Boolean(gitInfo.has_update);
+
+                const verLabel = isGerman
+                    ? `Installierte Version: <strong style="color:#f3f4f6;">${currentVer}</strong>`
+                    : `Installed version: <strong style="color:#f3f4f6;">${currentVer}</strong>`;
+
+                let updateHtml = '';
+                if (mode === 'wget') {
+                    if (hasUpdate) {
+                        const safeRelUrl = escapeHtml(gitInfo.release_url || 'https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases');
+                        const labelText = isGerman
+                            ? `Neue Version verfügbar (${latestVer})`
+                            : `New version available (${latestVer})`;
+                        const hintText = isGerman ? 'Release öffnen' : 'Open release';
+                        updateHtml = `
+                            <span style="color: #86efac; font-weight: 600;">${labelText}</span>
+                            <a href="${safeRelUrl}" target="_blank" rel="noopener noreferrer"
+                                style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; color: #86efac; background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(34, 197, 94, 0.38); text-decoration: none;">
+                                <i class="fas fa-external-link-alt"></i>
+                                <span>${hintText}</span>
+                            </a>
+                        `;
+                    } else {
+                        updateHtml = `<span style="opacity: 0.85;">• ${isGerman ? 'Aktuelle Version' : 'Up to date'}</span>`;
+                    }
+                } else {
+                    if (hasUpdate) {
+                        const commits = Array.isArray(gitInfo.commits) ? gitInfo.commits : [];
+                        const tooltipText = buildUpdateTooltip(gitInfo, latestVer);
+                        const hasCommits = commits.length > 0;
+                        updateHtml = `
+                            <span style="color: #86efac; font-weight: 600;">
+                                ${isGerman ? `Neue Version verfügbar (${latestVer})` : `New version available (${latestVer})`}
+                            </span>
+                            <button type="button" id="dash-layout-git-update-btn" title="${escapeHtml(tooltipText)}"
+                                style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; color: #86efac; background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(34, 197, 94, 0.38); cursor: pointer;">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>Update</span>
+                                ${hasCommits ? `<i class="fas fa-list-ul" style="opacity: 0.8;"></i>` : ''}
+                            </button>
+                        `;
+                    } else {
+                        updateHtml = `<span style="opacity: 0.85;">• ${isGerman ? 'Aktuelle Version' : 'Up to date'}</span>`;
+                    }
+                }
+
+                const leftIcon = mode === 'wget' ? 'fas fa-download' : 'fab fa-git-alt';
+
+                return `
+                    <div id="dash-layout-version-footer"
+                        style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 12px; color: #9ca3af;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <i class="${leftIcon}"></i>
+                            <span>${verLabel}</span>
+                            ${updateHtml}
+                        </div>
+                        <div id="dash-layout-update-error" style="color: #fca5a5; font-size: 11px;"></div>
+                    </div>
+                `;
+            }
+
+            function updateFooterButtonBadge() {
+                const $btn = $('#edit-dashboard-layout-btn');
+                if (!$btn.length) return;
+                const hasUpdate = Boolean(cachedGitInfo && cachedGitInfo.has_update);
+                if (hasUpdate && !$btn.find('.dash-layout-upd-dot').length) {
+                    const ver = escapeHtml(cachedGitInfo.latest_version || '');
+                    const badgeTitle = isGerman ? `Update verfügbar (${ver})` : `Update available (${ver})`;
+                    $btn.append(
+                        `<span class="dash-layout-upd-dot" title="${badgeTitle}" style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(34,197,94,0.18);color:#86efac;border:1px solid rgba(34,197,94,0.4);">Update</span>`
+                    );
+                }
+            }
 
             function slugifyTitle(text) {
                 return (text || '')
@@ -166,14 +272,26 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
 
             function sendLayoutRequest(payload, onDone, onError) {
                 const requestPayload = Object.assign({}, payload, { lang: langCode });
-                $.ajax({
+                if (currentCsrfToken) {
+                    requestPayload.csrf_token = currentCsrfToken;
+                }
+
+                const ajaxOpts = {
                     url: LAYOUT_ENDPOINT + '?lang=' + encodeURIComponent(langCode),
                     method: 'POST',
                     contentType: 'application/json; charset=utf-8',
                     data: JSON.stringify(requestPayload),
                     dataType: 'json'
-                })
+                };
+                if (currentCsrfToken) {
+                    ajaxOpts.headers = { 'X-CSRF-Token': currentCsrfToken };
+                }
+
+                $.ajax(ajaxOpts)
                 .done(function(res) {
+                    if (res && res.csrf_token) {
+                        currentCsrfToken = String(res.csrf_token);
+                    }
                     if (res && res.ok) {
                         if (typeof onDone === 'function') onDone(res);
                     } else {
@@ -181,7 +299,8 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                     }
                 })
                 .fail(function(jqXHR) {
-                    if (typeof onError === 'function') onError('HTTP ' + (jqXHR.status || 'Error'));
+                    const serverErr = jqXHR && jqXHR.responseJSON && jqXHR.responseJSON.error;
+                    if (typeof onError === 'function') onError(serverErr || ('HTTP ' + (jqXHR.status || 'Error')));
                 });
             }
 
@@ -278,6 +397,7 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                 }).get().join('');
 
                 const gridCols = (colCount >= 2 && !isNarrow) ? `repeat(${colCount}, minmax(0, 1fr))` : '1fr';
+                const versionFooterHtml = renderOverlayFooterHtml(cachedGitInfo);
 
                 const overlayHtml = `
                     <div id="dash-layout-overlay"
@@ -315,11 +435,57 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                                 ${columnsHtml}
                             </div>
                         </div>
+
+                        ${versionFooterHtml}
                     </div>
                 `;
 
                 const $overlay = $(overlayHtml);
                 $('body').append($overlay);
+
+                $overlay.on('click', '#dash-layout-git-update-btn', function(e) {
+                    e.preventDefault();
+                    const $btn = $(this);
+                    if ($btn.prop('disabled')) return;
+
+                    $btn.prop('disabled', true);
+                    $btn.find('i').first().addClass('fa-spin');
+                    $btn.find('span').text(isGerman ? 'Aktualisiere...' : 'Updating...');
+                    $('#dash-layout-update-error').text('');
+
+                    if (!currentCsrfToken) {
+                        $btn.prop('disabled', false);
+                        $btn.find('i').first().removeClass('fa-spin');
+                        $btn.find('span').text('Update');
+                        $('#dash-layout-update-error').text(isGerman ? 'Kein CSRF-Token vorhanden.' : 'Missing CSRF token.');
+                        return;
+                    }
+
+                    $.ajax({
+                        url: LAYOUT_ENDPOINT + '?action=update',
+                        method: 'POST',
+                        headers: { 'X-CSRF-Token': currentCsrfToken },
+                        dataType: 'json'
+                    }).done(function(res) {
+                        if (res && res.ok) {
+                            window.location.reload();
+                            return;
+                        }
+                        const msg = (res && res.error) ? res.error : (isGerman ? 'Update fehlgeschlagen.' : 'Update failed.');
+                        $btn.prop('disabled', false);
+                        $btn.find('i').first().removeClass('fa-spin');
+                        $btn.find('span').text('Update');
+                        $('#dash-layout-update-error').text(msg);
+                    }).fail(function(jqXHR) {
+                        const errDetail = (jqXHR && jqXHR.responseJSON && jqXHR.responseJSON.error)
+                            ? jqXHR.responseJSON.error
+                            : (isGerman ? 'Update fehlgeschlagen.' : 'Update failed.');
+                        $btn.prop('disabled', false);
+                        $btn.find('i').first().removeClass('fa-spin');
+                        $btn.find('span').text('Update');
+                        $('#dash-layout-update-error').text(errDetail);
+                    });
+                });
 
                 $overlay.on('click', '.dash-tile-toggle', function(e) {
                     e.preventDefault();
@@ -463,7 +629,10 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
             }
 
             function ensureFooterButton() {
-                if ($('#edit-dashboard-layout-btn').length) return true;
+                if ($('#edit-dashboard-layout-btn').length) {
+                    updateFooterButtonBadge();
+                    return true;
+                }
 
                 const label = isGerman ? 'Layout bearbeiten' : 'Edit Layout';
                 const $footerAnchor = $('.svg-footer-icon').first().closest('p').parent();
@@ -483,6 +652,7 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
 
                 if ($footer.length) {
                     $footer.append($btn);
+                    updateFooterButtonBadge();
                     return true;
                 }
                 return false;
@@ -502,6 +672,7 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
                             </button>
                         `).on('click', openPreviewOverlay);
                         $('body').append($btn);
+                        updateFooterButtonBadge();
                     }
                     clearInterval(btnRetryTimer);
                 }
@@ -539,6 +710,13 @@ if ('admin_dashboard' === (typeof getUrlQueryParameterValue === 'function' ? get
 
             $.getJSON(LAYOUT_ENDPOINT + '?lang=' + encodeURIComponent(langCode) + '&_=' + Date.now())
                 .done(function(res) {
+                    if (res && res.csrf_token) {
+                        currentCsrfToken = String(res.csrf_token);
+                    }
+                    if (res && res.git) {
+                        cachedGitInfo = res.git;
+                        updateFooterButtonBadge();
+                    }
                     const chosen = pickLayoutForLang(res, langCode);
                     if (chosen) {
                         cachedLayoutData = chosen;

@@ -1,6 +1,6 @@
 # KeyHelp Dashboard Layout Customizer
 
-A lightweight drag-and-drop layout and visibility manager for the KeyHelp admin dashboard (admin_dashboard), persisted server-side via a small PHP endpoint (dashboard_layout.json).
+A lightweight drag-and-drop layout and visibility manager for the KeyHelp admin dashboard (`admin_dashboard`), persisted server-side via a small PHP endpoint (`dashboard_layout.json`).
 
 <img width="800" height="408" alt="demo" src="https://github.com/user-attachments/assets/3730030b-c8c0-4909-9236-9f2d0d58b04c" />
 
@@ -8,8 +8,8 @@ A lightweight drag-and-drop layout and visibility manager for the KeyHelp admin 
 >
 > **Requirements**
 >
-> - **Panel:** KeyHelp admin dashboard (admin_dashboard) with `jQuery` available.
-> - **PHP & Web Access:** PHP endpoint (dashboard_layout.php) reachable under `dashboard-layout/` with write/delete permissions for `dashboard_layout.json`.
+> - **Panel:** KeyHelp admin dashboard (`admin_dashboard`) with `jQuery` available.
+> - **PHP & Web Access:** PHP endpoint (`dashboard_layout.php`) reachable under `dashboard-layout/` with write/delete permissions for `dashboard_layout.json`.
 > - **Permissions:** Directory and scripts owned by `keyhelp:keyhelp` so `dashboard_layout.json` can be created, updated, and removed on reset.
 
 ***
@@ -20,7 +20,8 @@ A lightweight drag-and-drop layout and visibility manager for the KeyHelp admin 
 - Hide or show individual dashboard boxes directly inside the preview modal.
 - Persist column order and hidden box IDs server-side in `dashboard_layout.json`.
 - Reset the saved layout with one click to restore the default KeyHelp dashboard.
-- Automatic German / English UI labels based on the html lang attribute.
+- Automatic German / English UI labels based on the `html lang` attribute.
+- Built-in update check against `origin/main` (or GitHub releases) with a changelog preview tooltip and one-click update button inside the preview overlay.
 
 ***
 
@@ -28,7 +29,7 @@ A lightweight drag-and-drop layout and visibility manager for the KeyHelp admin 
 
 ```text
 dashboard-layout/
-├── dashboard_layout.php   # Backend API (GET, POST, Reset) & JSON persistence
+├── dashboard_layout.php   # Backend API (GET, POST, Reset, Update) & JSON persistence
 └── dashboard_layout.js    # Frontend preview modal, drag-and-drop & layout logic
 ```
 
@@ -38,21 +39,21 @@ dashboard-layout/
 
 ### Step 1: Create Directory & Download Files
 
-Create the target directory inside KeyHelp and download the files via wget:
+Create the target directory inside KeyHelp and download the files via `wget`:
 
 ```bash
 mkdir -p /home/keyhelp/www/keyhelp/dashboard-layout
 cd /home/keyhelp/www/keyhelp/dashboard-layout
 
-wget -O dashboard_layout.php https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.0/dashboard_layout.php
-wget -O dashboard_layout.js https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.0/dashboard_layout.js
+wget -O dashboard_layout.php [https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.3/dashboard_layout.php](https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.3/dashboard_layout.php)
+wget -O dashboard_layout.js [https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.3/dashboard_layout.js](https://github.com/NicoMSH-plugins/keyhelp-dashboard-layout-customizer/releases/download/1.0.3/dashboard_layout.js)
 ```
 
 ### Step 2: Set Ownership and Permissions
 
 Set ownership to `keyhelp:keyhelp` and apply standard file/directory permissions so `dashboard_layout.json` can be written and deleted cleanly:
 
-```
+```bash
 chown -R keyhelp:keyhelp /home/keyhelp/www/keyhelp/dashboard-layout
 chmod 755 /home/keyhelp/www/keyhelp/dashboard-layout
 chmod 644 /home/keyhelp/www/keyhelp/dashboard-layout/dashboard_layout.php /home/keyhelp/www/keyhelp/dashboard-layout/dashboard_layout.js
@@ -60,13 +61,13 @@ chmod 644 /home/keyhelp/www/keyhelp/dashboard-layout/dashboard_layout.php /home/
 
 ### Step 3: Add the Loader in KeyHelp White-Label JavaScript
 
-Open your KeyHelp admin panel, go to White-Label -> JavaScript, and add the following snippet:
+Open your KeyHelp admin panel, go to **White-Label -> JavaScript**, and add the following snippet:
 
 ```javascript
 if ('admin_dashboard' === getUrlQueryParameterValue('page')) {
     $(function() {
         const ts = '?_=' + Date.now();
-        $.getScript('dashboard-layout/dashboard_layout.js' + ts); //muss immer als erstes geladen werden
+        $.getScript('dashboard-layout/dashboard_layout.js' + ts); // Load first if other dashboard scripts depend on layout/IDs
     });
 }
 ```
@@ -76,9 +77,9 @@ Save the White-Label settings.
 ### Step 4: Test in the KeyHelp Dashboard
 
 1. Open the KeyHelp Dashboard.
-2. Click Edit Layout in the footer area.
-3. Drag boxes up/down or between columns, and use Hide / Show if needed.
-4. Click Save & Reload to store the layout in `dashboard_layout.json`, or click Reset to remove it and restore defaults.
+2. Click **Edit Layout** in the footer area.
+3. Drag boxes up/down or between columns, and use **Hide / Show** if needed.
+4. Click **Save & Reload** to store the layout in `dashboard_layout.json`, or click **Reset** to remove it and restore defaults.
 
 ***
 
@@ -93,8 +94,13 @@ Save the White-Label settings.
 - **Per-Language Layout Storage**: Stored column order and hidden widget states separately per language (`locales.<lang>`) within a single `dashboard_layout.json` file via `dashboard_layout.php` and `dashboard_layout.js`.
 - **Cross-Language Layout Stability**: Prevented dashboard widgets from shifting or overflowing across columns when switching the interface language.
 - **Reliable Edit Button Placement**: Ensured the layout editor trigger button renders consistently in the dashboard footer across languages.
+
 #### v1.0.2 (2026-11-22)
 - **Fixed Widget ID Preservation**: Preserved fixed custom widget IDs in `dashboard_layout.js` instead of overwriting them with localized title slugs.
 - **Locale Layout Fallback**: Added fallback layout selection in `dashboard_layout.js` when no layout entry exists yet for the active interface language, preventing unexpected shifts during language switches.
 - **Event-Driven Layout Re-Application**: Re-applied saved layouts when asynchronous dashboard widgets finish rendering so column placement and visibility stay consistent.
+
+#### v1.0.3 (2026-11-24)
+- **Security**: Added KeyHelp session cookie recognition (`KEYHELP_SESSION_ID`), CSRF token validation, same-origin checks, and a write rate-limit cooldown on `POST` requests in `dashboard_layout.php`.
+- **Added**: Update check against `origin/main` (and GitHub releases fallback) with a changelog preview tooltip (`git log --oneline HEAD..origin/main`) and a one-click **Update** button (`POST ?action=update` via `git pull --ff-only origin main`) in the preview overlay.
 </details>
